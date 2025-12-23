@@ -11,7 +11,8 @@ public class GameEngine : MonoBehaviour
     public TMP_Text bodyText;
 
     [Header("Systems")]
-    public BackgroundLayer[] bgLayers; 
+    public BackgroundLayer[] bgLayers;
+    public DialogueSystem dialogueSystem; // New dialogue system reference
 
     [Header("Audio System")]
     public AudioSource voiceAudioSource;
@@ -38,6 +39,7 @@ public class GameEngine : MonoBehaviour
     }
 
     private Coroutine currentBgmFadeCoroutine;
+    private Coroutine currentVoiceFadeCoroutine;
 
     void Awake()
     {   
@@ -70,6 +72,18 @@ public class GameEngine : MonoBehaviour
                 seChannels.Add(source);
             }
         }
+
+        // Initialize dialogue system if not assigned
+        if (dialogueSystem == null)
+        {
+            dialogueSystem = GetComponent<DialogueSystem>();
+            if (dialogueSystem == null)
+            {
+                dialogueSystem = gameObject.AddComponent<DialogueSystem>();
+                dialogueSystem.nameText = nameText;
+                dialogueSystem.bodyText = bodyText;
+            }
+        }
     }
 
     void Start()
@@ -91,6 +105,15 @@ public class GameEngine : MonoBehaviour
         StartCoroutine(GameLoop());
     }
 
+    void Update()
+    {
+        // Handle skip request during dialogue
+        if (InputTrigger && dialogueSystem.isDisplaying)
+        {
+            dialogueSystem.RequestSkip();
+        }
+    }
+
     // Main Game Loop //
     IEnumerator GameLoop()
     {
@@ -102,8 +125,8 @@ public class GameEngine : MonoBehaviour
                 yield return null;
                 continue;
             }
-
-            // 2. PARSE NEXT LINE
+            
+            // Parse next line
             if (!parser.HasMoreLines())
             {
                 Debug.Log("End of Script.");
@@ -333,6 +356,61 @@ public class GameEngine : MonoBehaviour
         bgmSource.volume = 1f; // Reset volume
     }
 
+    // Play voice with smooth transition //
+    private IEnumerator PlayVoiceWithTransition(AudioClip clip)
+    {
+        if (clip == null) yield break;
+
+        // If voice is already playing, fade it out first
+        if (voiceAudioSource.isPlaying)
+        {
+            if (currentVoiceFadeCoroutine != null) StopCoroutine(currentVoiceFadeCoroutine);
+            currentVoiceFadeCoroutine = StartCoroutine(FadeOutVoice(0.15f));
+            yield return currentVoiceFadeCoroutine;
+        }
+
+        // Play new voice with fade in
+        voiceAudioSource.clip = clip;
+        voiceAudioSource.Play();
+        voiceAudioSource.volume = 0f;
+
+        if (currentVoiceFadeCoroutine != null) StopCoroutine(currentVoiceFadeCoroutine);
+        currentVoiceFadeCoroutine = StartCoroutine(FadeInVoice(0.15f));
+        yield return currentVoiceFadeCoroutine;
+    }
+
+    // Fade in voice //
+    private IEnumerator FadeInVoice(float duration)
+    {
+        float timer = 0f;
+        while (timer < duration)
+        {
+            timer += Time.deltaTime;
+            voiceAudioSource.volume = Mathf.Lerp(0f, 1f, timer / duration);
+            yield return null;
+        }
+        voiceAudioSource.volume = 1f;
+    }
+
+    // Fade out voice //
+    private IEnumerator FadeOutVoice(float duration)
+    {
+        if (!voiceAudioSource.isPlaying) yield break;
+
+        float startVolume = voiceAudioSource.volume;
+        float timer = 0f;
+
+        while (timer < duration)
+        {
+            timer += Time.deltaTime;
+            voiceAudioSource.volume = Mathf.Lerp(startVolume, 0f, timer / duration);
+            yield return null;
+        }
+
+        voiceAudioSource.Stop();
+        voiceAudioSource.volume = 1f;
+    }
+
     // ====================================
     //          DIALOG COMMANDS 
     // ====================================
@@ -342,7 +420,7 @@ public class GameEngine : MonoBehaviour
     {
         string text = string.Join(",", args.ToArray());
 
-        yield return StartCoroutine(DisplayMessage("", text));
+        yield return StartCoroutine(DisplayMessage("", text, null));
         isWaitingForInput = true;
     }
 
@@ -377,39 +455,42 @@ public class GameEngine : MonoBehaviour
         // Clean up body text
         body = body.Replace("%p", " ").Replace("「", "\"").Replace("」", "\"");
 
-        // Play Voice
+        // Load Voice
+        AudioClip clip = null;
         if (!string.IsNullOrEmpty(voiceFile))
         {
-            AudioClip clip = Resources.Load<AudioClip>("voice/" + voiceFile);
-            if (clip != null)
-            {
-                voiceAudioSource.clip = clip;
-                voiceAudioSource.Play();
-            }
+            clip = Resources.Load<AudioClip>("voice/" + voiceFile);
         }
 
         // Evaluate LipSync (work in progress)
         evaluator.Evaluate(lipSyncExpression); 
 
         // Display Message & wait for input
-        yield return StartCoroutine(DisplayMessage(name, body));
+        yield return StartCoroutine(DisplayMessage(name, body, clip));
         isWaitingForInput = true;
     }
 
     // Close message window
     public IEnumerator messWindowCloseWait(List<string> args)
     {
+        // Clear text with fade out
+        yield return StartCoroutine(dialogueSystem.ClearText());
+        
+        // Hide text box
+        yield return StartCoroutine(dialogueSystem.HideTextBox());
+        
         nameText.text = "";
         bodyText.text = "";
         Debug.Log("[UI] Close Message Window");
-        yield return new WaitForSeconds(0.5f);
     }
 
     // Open message window
     public IEnumerator messWindowOpenWait(List<string> args)
     {
+        // Show text box with fade in
+        yield return StartCoroutine(dialogueSystem.ShowTextBox());
+        
         Debug.Log("[UI] Open Message Window");
-        yield return new WaitForSeconds(0.5f);
     }
 
     // ====================================
@@ -468,31 +549,35 @@ public class GameEngine : MonoBehaviour
     //           PRIVATE HELPERS
     // ====================================
 
-    // Display message with typing effect (HAVE TO BE FULLY REWRITTEN)
-    private IEnumerator DisplayMessage(string name, string body)
+    // Display message with typing effect
+    private IEnumerator DisplayMessage(string name, string body, AudioClip voiceClip)
     {
-        nameText.text = name;
-        bodyText.text = "";
-        bool skipped = false;
-
-        for (int i = 0; i < body.Length; i++)
+        // Auto-open text box if not visible (professional VN behavior)
+        if (!dialogueSystem.isTextBoxVisible)
         {
-            if (InputTrigger) 
-            {
-                skipped = true;
-                break;
-            }
-            bodyText.text += body[i];
-            yield return new WaitForSeconds(typingSpeed);
+            yield return StartCoroutine(dialogueSystem.ShowTextBox());
         }
 
-        if (skipped)
+        // Play voice with smooth transition
+        if (voiceClip != null)
         {
-            bodyText.text = body;
-            yield return null; 
+            yield return StartCoroutine(PlayVoiceWithTransition(voiceClip));
         }
 
-        while (!InputTrigger) yield return null;
+        // Use new dialogue system
+        yield return StartCoroutine(dialogueSystem.DisplayText(name, body, voiceClip, typingSpeed));
+
+        // Wait for text to complete
+        while (!dialogueSystem.isTextComplete)
+        {
+            yield return null;
+        }
+
+        // Wait for user input
+        while (!InputTrigger)
+        {
+            yield return null;
+        }
     }
 
     // ============================
