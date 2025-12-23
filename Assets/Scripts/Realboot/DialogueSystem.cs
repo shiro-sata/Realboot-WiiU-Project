@@ -9,9 +9,8 @@ public class DialogueSystem : MonoBehaviour
     public TMP_Text nameText;
     public TMP_Text bodyText;
     public CanvasGroup textBoxCanvasGroup;
-    
+
     [Header("Animation Settings")]
-    public float characterFadeInDuration = 0.05f;
     public float textFadeOutDuration = 0.2f;
     public float textBoxFadeDuration = 0.3f;
     public float defaultTypingSpeed = 0.04f;
@@ -59,147 +58,62 @@ public class DialogueSystem : MonoBehaviour
         currentDisplayCoroutine = StartCoroutine(DisplayTextInternal(name, body, voiceClip, customSpeed));
         yield return currentDisplayCoroutine;
     }
-    
-    // Internal display logic with pre-calculation
+
+    // Internal display logic with classic typing effect
     private IEnumerator DisplayTextInternal(string name, string body, AudioClip voiceClip, float? customSpeed)
     {
         isDisplaying = true;
         isTextComplete = false;
         skipRequested = false;
-        
-        // Set name
+
         nameText.text = name;
-        
-        // Calculate typing speed based on voice length
-        float typingSpeed = customSpeed ?? defaultTypingSpeed;
-        if (voiceClip != null)
-        {
-            // Adapt speed to match voice duration
-            float voiceDuration = voiceClip.length;
-            int characterCount = body.Length;
-            
-            // Calculate speed to finish text when voice endsç
-            if (characterCount > 0)
-            {
-                typingSpeed = (voiceDuration * 0.95f) / characterCount;
-                typingSpeed = Mathf.Clamp(typingSpeed, 0.01f, 0.1f);
-            }
-        }
-        
-        currentTypingSpeed = typingSpeed;
-        
-        // Pre-calculate character positions
         bodyText.text = body;
+        bodyText.maxVisibleCharacters = 0;
+        
+        // Force mesh update to get character count
         bodyText.ForceMeshUpdate();
+
+        // Calculate typing speed
+        float typingSpeed = customSpeed ?? defaultTypingSpeed;
+        if (voiceClip != null && body.Length > 0)
+        {
+            typingSpeed = (voiceClip.length * 0.95f) / body.Length;
+            typingSpeed = Mathf.Clamp(typingSpeed, 0.01f, 0.1f);
+        }
+        currentTypingSpeed = typingSpeed;
+
         TMP_TextInfo textInfo = bodyText.textInfo;
         int totalCharacters = textInfo.characterCount;
-        
-        // Hide all characters initially
-        Color32[] originalColors = new Color32[textInfo.meshInfo.Length];
-        for (int i = 0; i < textInfo.meshInfo.Length; i++)
-        {
-            originalColors[i] = textInfo.meshInfo[i].colors32[0];
-        }
-        
-        // Make all characters invisible
-        for (int i = 0; i < totalCharacters; i++)
-        {
-            if (!textInfo.characterInfo[i].isVisible) continue;
-            
-            int materialIndex = textInfo.characterInfo[i].materialReferenceIndex;
-            int vertexIndex = textInfo.characterInfo[i].vertexIndex;
-            Color32[] colors = textInfo.meshInfo[materialIndex].colors32;
-            
-            colors[vertexIndex + 0].a = 0;
-            colors[vertexIndex + 1].a = 0;
-            colors[vertexIndex + 2].a = 0;
-            colors[vertexIndex + 3].a = 0;
-        }
-        
-        bodyText.UpdateVertexData(TMP_VertexDataUpdateFlags.Colors32);
-        
-        // Character-by-character reveal with fade-in
+
+        // Classic typing effect loop
+        int currentChar = 0;
         float timer = 0f;
-        int lastVisibleChar = -1;
-        
-        while (lastVisibleChar < totalCharacters - 1 && !skipRequested)
+
+        while (currentChar < totalCharacters && !skipRequested)
         {
             timer += Time.deltaTime;
             
-            // Calculate which character should be visible now
             int targetChar = Mathf.FloorToInt(timer / typingSpeed);
-            targetChar = Mathf.Min(targetChar, totalCharacters - 1);
+            targetChar = Mathf.Min(targetChar, totalCharacters);
             
-            // Fade in new characters
-            for (int i = lastVisibleChar + 1; i <= targetChar; i++)
+            if (targetChar > currentChar)
             {
-                if (!textInfo.characterInfo[i].isVisible) continue;
-                
-                StartCoroutine(FadeInCharacter(i, textInfo));
+                currentChar = targetChar;
+                bodyText.maxVisibleCharacters = currentChar;
             }
-            
-            lastVisibleChar = targetChar;
             
             yield return null;
         }
+
+        bodyText.maxVisibleCharacters = totalCharacters;
         
-        // If skipped, instantly reveal all
         if (skipRequested)
         {
-            for (int i = 0; i < totalCharacters; i++)
-            {
-                if (!textInfo.characterInfo[i].isVisible) continue;
-                
-                int materialIndex = textInfo.characterInfo[i].materialReferenceIndex;
-                int vertexIndex = textInfo.characterInfo[i].vertexIndex;
-                Color32[] colors = textInfo.meshInfo[materialIndex].colors32;
-                
-                colors[vertexIndex + 0].a = 255;
-                colors[vertexIndex + 1].a = 255;
-                colors[vertexIndex + 2].a = 255;
-                colors[vertexIndex + 3].a = 255;
-            }
-            
-            bodyText.UpdateVertexData(TMP_VertexDataUpdateFlags.Colors32);
+            yield return null; 
         }
-        
+
         isTextComplete = true;
         isDisplaying = false;
-    }
-    
-    // Fade in individual character
-    private IEnumerator FadeInCharacter(int charIndex, TMP_TextInfo textInfo)
-    {
-        if (!textInfo.characterInfo[charIndex].isVisible) yield break;
-        
-        int materialIndex = textInfo.characterInfo[charIndex].materialReferenceIndex;
-        int vertexIndex = textInfo.characterInfo[charIndex].vertexIndex;
-        Color32[] colors = textInfo.meshInfo[materialIndex].colors32;
-        
-        float elapsed = 0f;
-        
-        while (elapsed < characterFadeInDuration)
-        {
-            elapsed += Time.deltaTime;
-            byte alpha = (byte)(255 * Mathf.Clamp01(elapsed / characterFadeInDuration));
-            
-            colors[vertexIndex + 0].a = alpha;
-            colors[vertexIndex + 1].a = alpha;
-            colors[vertexIndex + 2].a = alpha;
-            colors[vertexIndex + 3].a = alpha;
-            
-            bodyText.UpdateVertexData(TMP_VertexDataUpdateFlags.Colors32);
-            
-            yield return null;
-        }
-        
-        // Ensure fully visible
-        colors[vertexIndex + 0].a = 255;
-        colors[vertexIndex + 1].a = 255;
-        colors[vertexIndex + 2].a = 255;
-        colors[vertexIndex + 3].a = 255;
-        
-        bodyText.UpdateVertexData(TMP_VertexDataUpdateFlags.Colors32);
     }
     
     // Clear text with fade out
