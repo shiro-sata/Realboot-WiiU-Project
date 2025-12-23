@@ -1,3 +1,6 @@
+ <h1 align="center">
+   <img class="logo" src="Medias/rb_banner.png">
+ </h1>
 
 <div align="center">
 <h1>Realboot Project</h1>
