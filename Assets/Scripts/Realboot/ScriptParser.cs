@@ -99,7 +99,6 @@ public class ScriptParser
         {
             // Add Args split by comma
             string argsBlock = firstSplit[1];
-            // Simple split for now. If texts have commas, we need the "strD" logic from Java
             string[] args = argsBlock.Split(',');
             
             foreach(var arg in args)
