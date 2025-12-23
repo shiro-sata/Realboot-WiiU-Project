@@ -7,6 +7,7 @@
 𝐨𝐧𝐥𝐲 𝐛𝐞𝐜𝐚𝐮𝐬𝐞 𝐢𝐭 𝐝𝐢𝐝 𝐧𝐨𝐭 𝐬𝐭𝐨𝐩 𝐲𝐞𝐭. <br>
 𝐈𝐭'𝐬 𝐧𝐨𝐰 𝐭𝐢𝐦𝐞 𝐟𝐨𝐫 𝐭𝐡𝐞 𝐫𝐞𝐚𝐥𝐛𝐨𝐨𝐭." 
 </div>
+
 ## About
 The Realboot Project is an attempt to recreate the  *MAGES Engine* on Unity for Wii U, combining the reverse engineering work of The Committee of Zero and my own to understand how Steins;Gate and Chaos;Head NoAH works. This project aims to faithfully recreate the experience of the original game while optimizing it for Nintendo's console.
 
