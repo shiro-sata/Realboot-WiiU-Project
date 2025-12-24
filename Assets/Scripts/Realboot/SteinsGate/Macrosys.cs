@@ -1,6 +1,7 @@
 using UnityEngine;
 using System.Collections.Generic;
-namespace SteinsGate
+
+namespace Realboot.SteinsGate
 {
     public class Macrosys : MonoBehaviour 
     {

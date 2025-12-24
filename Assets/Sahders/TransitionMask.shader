@@ -51,13 +51,6 @@
                 
                 // Get the Mask Color (Greyscale)
                 fixed4 mask = tex2D(_MaskTex, i.texcoord);
-                
-                // Logic: If Mask brightness < Range, it becomes transparent
-                // In Steins;Gate, masks define the transition pattern.
-                // We use step function for hard cutout, or smoothstep for soft edge.
-                
-                // If _Range is 1, fully visible. If 0, fully invisible (depending on mask).
-                // Let's assume standard Dissolve logic:
                 float alpha = step(1 - _Range, mask.r);
                 
                 col.a *= alpha;

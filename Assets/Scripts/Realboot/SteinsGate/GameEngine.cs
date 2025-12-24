@@ -1,38 +1,31 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using Debug = UnityEngine.Debug;
 
 using System.Reflection; 
-using TMPro;
 using System.Diagnostics;
-namespace SteinsGate
+
+using TMPro;
+using Debug = UnityEngine.Debug; // Avoid conflict with System.Diagnostics.Debug
+
+namespace Realboot.SteinsGate
 {
     public class GameEngine : MonoBehaviour
     {
         [Header("UI References")]
-        public TMP_Text nameText;
-        public TMP_Text bodyText;
+        [SerializeField] private Realboot.UIReferences UI = new Realboot.UIReferences();
     
         [Header("Systems")]
-        public BackgroundLayer[] bgLayers;
-        public DialogueSystem dialogueSystem;
-        public Macrosys macroSystem;
+        [SerializeField] private Realboot.SystemReferences system = new Realboot.SystemReferences();
+        [SerializeField] private Macrosys macroSystem;
     
         [Header("Audio System")]
-        public AudioSource voiceAudioSource;
-        public AudioSource bgmSource;
-        public List<AudioSource> seChannels = new List<AudioSource>();
-        public int totalChannels = 8;
+        [SerializeField] private Realboot.AudioReferences audio = new Realboot.AudioReferences();
+
     
         [Header("Settings")]
-        public string startScript = "SG00_01"; 
-        public float typingSpeed = 0.02f;
-        
-        // Sub-systems
-        private ScriptParser parser;
-        private StateManager memory;
-        private ExpressionEvaluator evaluator;
+        public string startScript = "SG00_01"; // Temporary, will be set by the launcher
+        [SerializeField] private float typingSpeed = 0.02f;
     
         // Engine State
         private bool isRunning = false;
@@ -46,74 +39,20 @@ namespace SteinsGate
         private Coroutine currentBgmFadeCoroutine;
         private Coroutine currentVoiceFadeCoroutine;
     
-        void Awake()
-        {   
-            // audio root
-            GameObject audioRoot = GameObject.Find("Audio_System");
-            if (audioRoot == null) {
-                audioRoot = new GameObject("Audio_System");
-                audioRoot.transform.SetParent(this.transform);
-            }
-    
-            // Setup BGM
-            if (bgmSource == null)
-            {
-                GameObject bgmObj = new GameObject("BGM_Source");
-                bgmObj.transform.SetParent(audioRoot.transform);
-                bgmSource = bgmObj.AddComponent<AudioSource>();
-                bgmSource.loop = true; // Always loop BGM
-                bgmSource.playOnAwake = false;
-            }
-    
-            // Setup SE
-            if (seChannels.Count == 0)
-            {
-                for (int i = 0; i < totalChannels; i++)
-                {
-                    GameObject channelObj = new GameObject("SE_Channel_" + i);
-                    channelObj.transform.SetParent(audioRoot.transform);
-                    AudioSource source = channelObj.AddComponent<AudioSource>();
-                    source.playOnAwake = false;
-                    seChannels.Add(source);
-                }
-            }
-            // Setup Macrosys
-            if (macroSystem == null)
-            {
-                macroSystem = GetComponent<Macrosys>();
-                if (macroSystem == null)
-                {
-                    macroSystem = gameObject.AddComponent<Macrosys>();
-                }
-            }
-    
-            // Initialize dialogue system if not assigned
-            if (dialogueSystem == null)
-            {
-                dialogueSystem = GetComponent<DialogueSystem>();
-                if (dialogueSystem == null)
-                {
-                    dialogueSystem = gameObject.AddComponent<DialogueSystem>();
-                    dialogueSystem.nameText = nameText;
-                    dialogueSystem.bodyText = bodyText;
-                }
-            }
-        }
-    
         void Start()
         {
             // Initialization
-            if (bgLayers != null)
+            if (UI.bgLayers != null)
             {
-                for (int i = 0; i < bgLayers.Length; i++)
-                    if (bgLayers[i] != null) bgLayers[i].LoadBackground("NONE");
+                for (int i = 0; i < UI.bgLayers.Length; i++)
+                    if (UI.bgLayers[i] != null) UI.bgLayers[i].LoadBackground("NONE");
             }
     
-            parser = new ScriptParser();
-            memory = new StateManager();
-            evaluator = new ExpressionEvaluator(memory);
+            system.parser = new ScriptParser();
+            system.memory = new StateManager();
+            system.evaluator = new ExpressionEvaluator(system.memory);
             
-            parser.LoadScript(startScript);
+            system.parser.LoadScript(startScript);
     
             isRunning = true;
             StartCoroutine(GameLoop());
@@ -122,9 +61,9 @@ namespace SteinsGate
         void Update()
         {
             // Handle skip request during dialogue
-            if (InputTrigger && dialogueSystem.isDisplaying)
+            if (InputTrigger && system.dialogueSystem.isDisplaying)
             {
-                dialogueSystem.RequestSkip();
+                system.dialogueSystem.RequestSkip();
             }
         }
     
@@ -141,15 +80,15 @@ namespace SteinsGate
                 }
                 
                 // Parse next line
-                if (!parser.HasMoreLines())
+                if (!system.parser.HasMoreLines())
                 {
                     Debug.Log("End of Script.");
                     isRunning = false;
                     break;
                 }
     
-                string rawLine = parser.GetCurrentLine();
-                List<string> args = parser.ParseCommand(rawLine);
+                string rawLine = system.parser.GetCurrentLine();
+                List<string> args = system.parser.ParseCommand(rawLine);
     
                 if (args != null && args.Count > 0)
                 {
@@ -157,7 +96,7 @@ namespace SteinsGate
                     yield return StartCoroutine(ExecuteCommand(command, args));
                 }
     
-                parser.NextLine();
+                system.parser.NextLine();
             }
         }
     
@@ -196,8 +135,8 @@ namespace SteinsGate
             int channelIndex = int.Parse(args[0]); // First arg is channel
             
             // Channel bounds check
-            if (channelIndex >= seChannels.Count) {
-                int chanCount = seChannels.Count - 1;
+            if (channelIndex >= audio.seChannels.Count) {
+                int chanCount = audio.seChannels.Count - 1;
                 Debug.LogWarning("[AUDIO] Channel " + channelIndex + " not found. Max is " + chanCount);
                 return;
             }
@@ -238,7 +177,7 @@ namespace SteinsGate
         private void PlaySoundEffect(int channel, string filename, bool loop)
         {
             filename = filename.Replace("SGSE", "SE"); // file names correction
-            AudioSource source = seChannels[channel]; // Get the channels
+            AudioSource source = audio.seChannels[channel]; // Get the channels
     
             source.Stop();
     
@@ -265,9 +204,9 @@ namespace SteinsGate
     
             int channelIndex = int.Parse(args[0]);
     
-            if (channelIndex >= 0 && channelIndex < seChannels.Count)
+            if (channelIndex >= 0 && channelIndex < audio.seChannels.Count)
             {
-                AudioSource source = seChannels[channelIndex];
+                AudioSource source = audio.seChannels[channelIndex];
                 StartCoroutine(FadeOutAndStopSE(source, 0.5f)); // Fade out over 0.5 seconds
             }
         }
@@ -298,7 +237,7 @@ namespace SteinsGate
             if (args.Count < 1) return;
             string filename = args[0];
     
-            if (bgmSource.clip != null && bgmSource.clip.name == filename && bgmSource.isPlaying) 
+            if (audio.bgmSource.clip != null && audio.bgmSource.clip.name == filename && audio.bgmSource.isPlaying) 
                 return;
     
             AudioClip clip = Resources.Load<AudioClip>("bgm/" + filename);
@@ -324,50 +263,50 @@ namespace SteinsGate
         // BGM Fade In logic //
         private IEnumerator FadeInNewBGM(AudioClip newClip, float duration)
         {
-            if (bgmSource.isPlaying)
+            if (audio.bgmSource.isPlaying)
             {
-                float startVol = bgmSource.volume;
+                float startVol = audio.bgmSource.volume;
                 float t = 0;
                 while (t < 0.2f)
                 {
                     t += Time.deltaTime;
-                    bgmSource.volume = Mathf.Lerp(startVol, 0f, t / 0.2f);
+                    audio.bgmSource.volume = Mathf.Lerp(startVol, 0f, t / 0.2f);
                     yield return null;
                 }
             }
     
-            bgmSource.clip = newClip;
-            bgmSource.Play();
-            bgmSource.volume = 0f;
+            audio.bgmSource.clip = newClip;
+            audio.bgmSource.Play();
+            audio.bgmSource.volume = 0f;
     
             float timer = 0f;
             while (timer < duration)
             {
                 timer += Time.deltaTime;
-                bgmSource.volume = Mathf.Lerp(0f, 1f, timer / duration);
+                audio.bgmSource.volume = Mathf.Lerp(0f, 1f, timer / duration);
                 yield return null;
             }
-            bgmSource.volume = 1f;
+            audio.bgmSource.volume = 1f;
         }
     
         // BGM Fade Out logic //
         private IEnumerator FadeOutBGM(float duration)
         {
-            if (!bgmSource.isPlaying) yield break;
+            if (!audio.bgmSource.isPlaying) yield break;
     
-            float startVolume = bgmSource.volume;
+            float startVolume = audio.bgmSource.volume;
             float timer = 0f;
     
             while (timer < duration)
             {
                 timer += Time.deltaTime;
-                bgmSource.volume = Mathf.Lerp(startVolume, 0f, timer / duration);
+                audio.bgmSource.volume = Mathf.Lerp(startVolume, 0f, timer / duration);
                 yield return null;
             }
     
-            bgmSource.Stop();
-            bgmSource.clip = null;
-            bgmSource.volume = 1f; // Reset volume
+            audio.bgmSource.Stop();
+            audio.bgmSource.clip = null;
+            audio.bgmSource.volume = 1f; // Reset volume
         }
     
         // Play voice with smooth transition //
@@ -376,7 +315,7 @@ namespace SteinsGate
             if (clip == null) yield break;
     
             // If voice is already playing, fade it out first
-            if (voiceAudioSource.isPlaying)
+            if (audio.voiceAudioSource.isPlaying)
             {
                 if (currentVoiceFadeCoroutine != null) StopCoroutine(currentVoiceFadeCoroutine);
                 currentVoiceFadeCoroutine = StartCoroutine(FadeOutVoice(0.15f));
@@ -384,9 +323,9 @@ namespace SteinsGate
             }
     
             // Play new voice with fade in
-            voiceAudioSource.clip = clip;
-            voiceAudioSource.Play();
-            voiceAudioSource.volume = 0f;
+            audio.voiceAudioSource.clip = clip;
+            audio.voiceAudioSource.Play();
+            audio.voiceAudioSource.volume = 0f;
     
             if (currentVoiceFadeCoroutine != null) StopCoroutine(currentVoiceFadeCoroutine);
             currentVoiceFadeCoroutine = StartCoroutine(FadeInVoice(0.15f));
@@ -400,29 +339,29 @@ namespace SteinsGate
             while (timer < duration)
             {
                 timer += Time.deltaTime;
-                voiceAudioSource.volume = Mathf.Lerp(0f, 1f, timer / duration);
+                audio.voiceAudioSource.volume = Mathf.Lerp(0f, 1f, timer / duration);
                 yield return null;
             }
-            voiceAudioSource.volume = 1f;
+            audio.voiceAudioSource.volume = 1f;
         }
     
         // Fade out voice //
         private IEnumerator FadeOutVoice(float duration)
         {
-            if (!voiceAudioSource.isPlaying) yield break;
+            if (!audio.voiceAudioSource.isPlaying) yield break;
     
-            float startVolume = voiceAudioSource.volume;
+            float startVolume = audio.voiceAudioSource.volume;
             float timer = 0f;
     
             while (timer < duration)
             {
                 timer += Time.deltaTime;
-                voiceAudioSource.volume = Mathf.Lerp(startVolume, 0f, timer / duration);
+                audio.voiceAudioSource.volume = Mathf.Lerp(startVolume, 0f, timer / duration);
                 yield return null;
             }
     
-            voiceAudioSource.Stop();
-            voiceAudioSource.volume = 1f;
+            audio.voiceAudioSource.Stop();
+            audio.voiceAudioSource.volume = 1f;
         }
     
         // ====================================
@@ -477,7 +416,7 @@ namespace SteinsGate
             }
     
             // Evaluate LipSync (work in progress)
-            evaluator.Evaluate(lipSyncExpression); 
+            system.evaluator.Evaluate(lipSyncExpression); 
     
             // Display Message & wait for input
             yield return StartCoroutine(DisplayMessage(name, body, clip));
@@ -488,13 +427,13 @@ namespace SteinsGate
         public IEnumerator messWindowCloseWait(List<string> args)
         {
             // Clear text with fade out
-            yield return StartCoroutine(dialogueSystem.ClearText());
+            yield return StartCoroutine(system.dialogueSystem.ClearText());
             
             // Hide text box
-            yield return StartCoroutine(dialogueSystem.HideTextBox());
+            yield return StartCoroutine(system.dialogueSystem.HideTextBox());
             
-            nameText.text = "";
-            bodyText.text = "";
+            UI.nameText.text = "";
+            UI.bodyText.text = "";
             Debug.Log("[UI] Close Message Window");
         }
     
@@ -502,7 +441,7 @@ namespace SteinsGate
         public IEnumerator messWindowOpenWait(List<string> args)
         {
             // Show text box with fade in
-            yield return StartCoroutine(dialogueSystem.ShowTextBox());
+            yield return StartCoroutine(system.dialogueSystem.ShowTextBox());
             
             Debug.Log("[UI] Open Message Window");
         }
@@ -553,20 +492,20 @@ namespace SteinsGate
         // Jump to label
         public void jump(List<string> args) 
         { 
-            parser.GoToLabel(args[0]); 
-            parser.currentLineIndex--; 
+            system.parser.GoToLabel(args[0]); 
+            system.parser.currentLineIndex--; 
         }
         
         // Assign value to variable or flag
         public void assign(List<string> args)
         {
             string targetVar = args[0];
-            int value = System.Convert.ToInt32(evaluator.Evaluate(args[1]));
+            int value = System.Convert.ToInt32(system.evaluator.Evaluate(args[1]));
     
             if (targetVar.StartsWith("$W"))
-                memory.SetInt(targetVar.Substring(3, targetVar.Length - 4), value);
+                system.memory.SetInt(targetVar.Substring(3, targetVar.Length - 4), value);
             else if (targetVar.StartsWith("$F"))
-                memory.SetFlag(targetVar.Substring(3, targetVar.Length - 4), value != 0);
+                system.memory.SetFlag(targetVar.Substring(3, targetVar.Length - 4), value != 0);
         }
         
         // Wait for specified frames
@@ -580,7 +519,7 @@ namespace SteinsGate
         // Wait for specified milliseconds
         public IEnumerator mwait(List<string> args)
         {
-            int val = evaluator.Evaluate(args[0]);
+            int val = system.evaluator.Evaluate(args[0]);
             float seconds = (float)val / 60.0f;
             
             if (seconds > 0)
@@ -595,8 +534,8 @@ namespace SteinsGate
         public void loadBG(List<string> args)
         {
             int layerIndex = int.Parse(args[0]);
-            if (layerIndex >= 0 && layerIndex < bgLayers.Length)
-                bgLayers[layerIndex].LoadBackground(args[1]);
+            if (layerIndex >= 0 && layerIndex < UI.bgLayers.Length)
+                UI.bgLayers[layerIndex].LoadBackground(args[1]);
         }
     
         // ====================================
@@ -607,9 +546,9 @@ namespace SteinsGate
         private IEnumerator DisplayMessage(string name, string body, AudioClip voiceClip)
         {
             // Auto-open text box if not visible (professional VN behavior)
-            if (!dialogueSystem.isTextBoxVisible)
+            if (!system.dialogueSystem.isTextBoxVisible)
             {
-                yield return StartCoroutine(dialogueSystem.ShowTextBox());
+                yield return StartCoroutine(system.dialogueSystem.ShowTextBox());
             }
     
             // Play voice with smooth transition
@@ -619,10 +558,10 @@ namespace SteinsGate
             }
     
             // Use new dialogue system
-            yield return StartCoroutine(dialogueSystem.DisplayText(name, body, voiceClip, typingSpeed));
+            yield return StartCoroutine(system.dialogueSystem.DisplayText(name, body, voiceClip, typingSpeed));
     
             // Wait for text to complete
-            while (!dialogueSystem.isTextComplete)
+            while (!system.dialogueSystem.isTextComplete)
             {
                 yield return null;
             }
