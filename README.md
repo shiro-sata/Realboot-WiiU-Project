@@ -9,12 +9,13 @@
 𝐄𝐫𝐫𝐨𝐫𝐬 𝐰𝐞𝐫𝐞 𝐝𝐢𝐬𝐜𝐚𝐫𝐝𝐞𝐝 𝐛𝐞𝐟𝐨𝐫𝐞 𝐚𝐧𝐲𝐨𝐧𝐞 𝐜𝐨𝐮𝐥𝐝 𝐧𝐨𝐭𝐢𝐜𝐞 𝐭𝐡𝐞𝐦. 𝐘𝐨𝐮 𝐛𝐞𝐥𝐢𝐞𝐯𝐞 𝐭𝐡𝐢𝐬 𝐰𝐨𝐫𝐥𝐝 𝐢𝐬 𝐫𝐞𝐚𝐥, <br>
 𝐨𝐧𝐥𝐲 𝐛𝐞𝐜𝐚𝐮𝐬𝐞 𝐢𝐭 𝐝𝐢𝐝 𝐧𝐨𝐭 𝐬𝐭𝐨𝐩 𝐲𝐞𝐭. <br>
 𝐈𝐭'𝐬 𝐧𝐨𝐰 𝐭𝐢𝐦𝐞 𝐟𝐨𝐫 𝐭𝐡𝐞 𝐫𝐞𝐚𝐥𝐛𝐨𝐨𝐭." 
+<h1><a href="https://discord.gg/uFn6S7AzSu">Join the project on Discord</a></h1>
 </div>
 
 ## About
 The Realboot Project is an attempt to recreate the  *MAGES Engine* on Unity for Wii U, combining the reverse engineering work of The Committee of Zero and my own to understand how Steins;Gate and Chaos;Head NoAH works. This project aims to faithfully recreate the experience of the original game while optimizing it for Nintendo's console.
 
-The main objective is to run Steins;Gate, Chaos;Head NoAH, and Chaos;Child natively on the Wii U. Also, a Mobile and Windows support is meant to be made
+The main objective is to run Steins;Gate, Chaos;Head NoAH, and Chaos;Child natively on the Wii U. Also, a Mobile and PC support is meant to be made
 ## Current state of the project
 Realboot Engine emulate the behavior of the Android verison of Steins;Gate with a lot of changes in it to make it more accurate to the PC version of the game.
 For now, it :
