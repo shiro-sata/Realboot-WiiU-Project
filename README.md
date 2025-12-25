@@ -26,11 +26,11 @@ For now, it :
 - change background correctly
 - interpret the labels & the jumps
 - Calculate lip syncs for sprites
+- Multiple game support
 
 what it doesn't do yet :
 - phone mechanics
 - sprite display and reader
 - full CPK and SRC reader (for now you need to manually extract assets to 'Assets/Ressources')
 - Video player/Interpreter
-- multiple games support (at the end, Realboot Engine is meant to support Chaos;Head NoAH, Steins;Gate, and Chaos;Child). For now it only work with Steins;Gate
 - Full Wii U Support
