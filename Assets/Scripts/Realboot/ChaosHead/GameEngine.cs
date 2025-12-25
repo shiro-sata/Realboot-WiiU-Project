@@ -1,33 +1,17 @@
-using UnityEngine;
+using System.Collections;
 using System.Collections.Generic;
-using System.Reflection;
+using UnityEngine;
+
+using System.Reflection; 
+using System.Diagnostics;
+
+using TMPro;
+using Debug = UnityEngine.Debug; // Avoid conflict with System.Diagnostics.Debug
 
 namespace Realboot.ChaosHead
 {
-    public class GameEngine : MonoBehaviour
+    public class ChaosHeadModule : Realboot.GameModuleBase
     {
-        [Header("UI References")]
-        [SerializeField] private Realboot.UIReferences UI = new Realboot.UIReferences();
-    
-        [Header("Systems")]
-        [SerializeField] private Realboot.SystemReferences system = new Realboot.SystemReferences();
-        [SerializeField] private Macrosys macroSystem;
-    
-        [Header("Audio System")]
-        [SerializeField] private Realboot.AudioReferences audio = new Realboot.AudioReferences();
-
-    
-        [Header("Settings")]
-        public string startScript; // Temporary, will be set by the launcher
-        [SerializeField] private float typingSpeed = 0.02f;
-    
-        // Engine State
-        private bool isRunning = false;
-        private bool isWaitingForInput = false;
-    
-        private bool InputTrigger
-        {
-            get { return Input.GetMouseButtonDown(0) || Input.GetKeyDown(KeyCode.Space); }
-        }
+        
     }
 }

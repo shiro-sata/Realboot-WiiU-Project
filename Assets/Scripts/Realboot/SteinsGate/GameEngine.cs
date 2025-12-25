@@ -4,124 +4,16 @@ using UnityEngine;
 
 using System.Reflection; 
 using System.Diagnostics;
+using Realboot;
 
 using TMPro;
 using Debug = UnityEngine.Debug; // Avoid conflict with System.Diagnostics.Debug
 
 namespace Realboot.SteinsGate
 {
-    public class GameEngine : MonoBehaviour
+    public class SteinsGateModule : Realboot.GameModuleBase
     {
-        [Header("UI References")]
-        [SerializeField] private Realboot.UIReferences UI = new Realboot.UIReferences();
-    
-        [Header("Systems")]
-        [SerializeField] private Realboot.SystemReferences system = new Realboot.SystemReferences();
-        [SerializeField] private Macrosys macroSystem;
-    
-        [Header("Audio System")]
-        [SerializeField] private Realboot.AudioReferences audio = new Realboot.AudioReferences();
-
-    
-        [Header("Settings")]
-        public string startScript = "SG00_01"; // Temporary, will be set by the launcher
-        [SerializeField] private float typingSpeed = 0.02f;
-    
-        // Engine State
-        private bool isRunning = false;
-        private bool isWaitingForInput = false;
-    
-        private bool InputTrigger
-        {
-            get { return Input.GetMouseButtonDown(0) || Input.GetKeyDown(KeyCode.Space); }
-        }
-    
-        private Coroutine currentBgmFadeCoroutine;
-        private Coroutine currentVoiceFadeCoroutine;
-    
-        void Start()
-        {
-            // Initialization
-            if (UI.bgLayers != null)
-            {
-                for (int i = 0; i < UI.bgLayers.Length; i++)
-                    if (UI.bgLayers[i] != null) UI.bgLayers[i].LoadBackground("NONE");
-            }
-    
-            system.parser = new ScriptParser();
-            system.memory = new StateManager();
-            system.evaluator = new ExpressionEvaluator(system.memory);
-            
-            system.parser.LoadScript(startScript);
-    
-            isRunning = true;
-            StartCoroutine(GameLoop());
-        }
-    
-        void Update()
-        {
-            // Handle skip request during dialogue
-            if (InputTrigger && system.dialogueSystem.isDisplaying)
-            {
-                system.dialogueSystem.RequestSkip();
-            }
-        }
-    
-        // Main Game Loop //
-        IEnumerator GameLoop()
-        {
-            while (isRunning)
-            {
-                if (isWaitingForInput)
-                {
-                    if (InputTrigger) isWaitingForInput = false;
-                    yield return null;
-                    continue;
-                }
-                
-                // Parse next line
-                if (!system.parser.HasMoreLines())
-                {
-                    Debug.Log("End of Script.");
-                    isRunning = false;
-                    break;
-                }
-    
-                string rawLine = system.parser.GetCurrentLine();
-                List<string> args = system.parser.ParseCommand(rawLine);
-    
-                if (args != null && args.Count > 0)
-                {
-                    string command = args[0];
-                    yield return StartCoroutine(ExecuteCommand(command, args));
-                }
-    
-                system.parser.NextLine();
-            }
-        }
-    
-        // Command Executor //
-        IEnumerator ExecuteCommand(string commandName, List<string> args)
-        {
-            string methodName = commandName.Replace("#", "");
-            MethodInfo method = this.GetType().GetMethod(methodName, 
-                BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase);
-    
-            if (method != null)
-            {
-                List<string> parameters = new List<string>(args);
-                parameters.RemoveAt(0);
-    
-                object result = method.Invoke(this, new object[] { parameters });
-    
-                IEnumerator coroutine = result as IEnumerator;
-                if (coroutine != null) yield return StartCoroutine(coroutine);
-            }
-            else
-            {
-                if (methodName != "label") Debug.LogWarning("[ENGINE] Unknown Command: " + commandName);
-            }
-        }
+        private Macrosys macroSystem;
     
         // ====================================
         //          AUDIO COMMANDS
